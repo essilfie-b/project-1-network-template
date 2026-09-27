@@ -1,0 +1,861 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AWS S3 Image Gallery</title>
+    <style>
+        :root {
+            --primary-color: #0066cc;
+            --secondary-color: #f0f2f5;
+            --accent-color: #ff9900;
+            --text-color: #333;
+            --border-color: #ddd;
+            --success-color: #28a745;
+            --danger-color: #dc3545;
+            --warning-color: #ffc107;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+
+        body {
+            background-color: var(--secondary-color);
+            color: var(--text-color);
+            line-height: 1.6;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        header {
+            background-color: #fff;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+            padding: 20px 0;
+            margin-bottom: 30px;
+        }
+
+        header .container {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        header h1 {
+            color: var(--primary-color);
+            display: flex;
+            align-items: center;
+        }
+
+        header h1 i {
+            margin-right: 10px;
+            color: var(--accent-color);
+        }
+
+        .upload-section {
+            background-color: #fff;
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 30px;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+        }
+
+        .upload-form {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 15px;
+            align-items: center;
+        }
+
+        .file-input-container {
+            position: relative;
+            flex-grow: 1;
+        }
+
+        .file-input {
+            width: 100%;
+            padding: 10px;
+            border: 2px dashed var(--border-color);
+            border-radius: 4px;
+            cursor: pointer;
+            min-height: 60px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: border-color 0.3s;
+        }
+
+        .file-input:hover {
+            border-color: var(--primary-color);
+        }
+
+        #fileInput {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            opacity: 0;
+            cursor: pointer;
+        }
+
+        .selected-file {
+            margin-top: 5px;
+            font-size: 0.9rem;
+            color: var(--primary-color);
+            word-break: break-all;
+        }
+
+        .btn {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-weight: 600;
+            transition: background-color 0.3s, transform 0.1s;
+        }
+
+        .btn:active {
+            transform: scale(0.98);
+        }
+
+        .btn-primary {
+            background-color: var(--primary-color);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background-color: #0055b3;
+        }
+
+        .btn-danger {
+            background-color: var(--danger-color);
+            color: white;
+        }
+
+        .btn-danger:hover {
+            background-color: #c82333;
+        }
+
+        .search-container {
+            display: flex;
+            margin-bottom: 20px;
+            gap: 10px;
+        }
+
+        .search-input {
+            flex-grow: 1;
+            padding: 10px;
+            border: 1px solid var(--border-color);
+            border-radius: 4px;
+        }
+        
+        .status-message {
+            margin: 10px 0;
+            padding: 10px;
+            border-radius: 4px;
+            display: none;
+        }
+
+        .status-message.success {
+            background-color: rgba(40, 167, 69, 0.2);
+            border: 1px solid var(--success-color);
+            color: var(--success-color);
+        }
+
+        .status-message.error {
+            background-color: rgba(220, 53, 69, 0.2);
+            border: 1px solid var(--danger-color);
+            color: var(--danger-color);
+        }
+
+        .gallery {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+            gap: 20px;
+            margin-top: 20px;
+        }
+
+        .image-card {
+            background-color: #fff;
+            border-radius: 8px;
+            overflow: hidden;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+            transition: transform 0.3s;
+        }
+
+        .image-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+        }
+
+        .image-container {
+            height: 200px;
+            overflow: hidden;
+            position: relative;
+            background-color: #f8f8f8;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .image-container img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            transition: transform 0.3s;
+        }
+
+        .image-card:hover .image-container img {
+            transform: scale(1.05);
+        }
+
+        .image-info {
+            padding: 15px;
+        }
+
+        .image-filename {
+            font-weight: 600;
+            margin-bottom: 5px;
+            word-break: break-all;
+            font-size: 0.9rem;
+        }
+
+        .image-size {
+            color: #666;
+            font-size: 0.8rem;
+            margin-bottom: 10px;
+        }
+
+        .image-actions {
+            display: flex;
+            justify-content: space-between;
+            margin-top: 10px;
+        }
+
+        .image-actions button {
+            padding: 6px 12px;
+            font-size: 0.8rem;
+        }
+
+        .pagination {
+            display: flex;
+            justify-content: center;
+            margin: 30px 0;
+            gap: 5px;
+        }
+
+        .pagination button {
+            padding: 8px 12px;
+            background-color: white;
+            border: 1px solid var(--border-color);
+            border-radius: 4px;
+            cursor: pointer;
+            transition: background-color 0.3s;
+        }
+
+        .pagination button:hover:not(.active, .disabled) {
+            background-color: #f9f9f9;
+        }
+
+        .pagination button.active {
+            background-color: var(--primary-color);
+            color: white;
+            border-color: var(--primary-color);
+        }
+
+        .pagination button.disabled {
+            color: #999;
+            cursor: not-allowed;
+        }
+
+        .empty-gallery {
+            text-align: center;
+            padding: 40px;
+            background-color: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+        }
+
+        .empty-gallery i {
+            font-size: 3rem;
+            color: var(--border-color);
+            margin-bottom: 20px;
+        }
+
+        .loader {
+            display: flex;
+            justify-content: center;
+            padding: 20px;
+        }
+
+        .spinner {
+            width: 40px;
+            height: 40px;
+            border: 4px solid rgba(0, 0, 0, 0.1);
+            border-left-color: var(--primary-color);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            to {
+                transform: rotate(360deg);
+            }
+        }
+
+        .hidden {
+            display: none;
+        }
+
+        /* Responsive adjustments */
+        @media screen and (max-width: 768px) {
+            .gallery {
+                grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+            }
+            
+            .upload-form {
+                flex-direction: column;
+                align-items: stretch;
+            }
+            
+            .search-container {
+                flex-direction: column;
+            }
+        }
+    </style>
+    <!-- Font Awesome for icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+</head>
+<body>
+    <header>
+        <div class="container">
+            <h1><i class="fas fa-cloud"></i> AWS S3 Image Gallery</h1>
+            <div id="bucketInfo"></div>
+        </div>
+    </header>
+
+    <div class="container">
+        <section class="upload-section">
+            <h2>Upload Image</h2>
+            <div class="status-message" id="statusMessage"></div>
+            
+            <form class="upload-form" id="uploadForm">
+                <div class="file-input-container">
+                    <div class="file-input" id="fileInputLabel">
+                        <span>Drag & drop an image or click to browse</span>
+                    </div>
+                    <input type="file" id="fileInput" accept="image/*">
+                    <div class="selected-file" id="selectedFile"></div>
+                </div>
+                <button type="submit" class="btn btn-primary">
+                    <i class="fas fa-upload"></i> Upload
+                </button>
+            </form>
+        </section>
+
+        <section class="gallery-section">
+            <h2>Image Gallery</h2>
+            <div class="search-container">
+                <input type="text" class="search-input" id="searchInput" placeholder="Search images...">
+                <button class="btn btn-primary" id="searchBtn">
+                    <i class="fas fa-search"></i> Search
+                </button>
+            </div>
+            
+            <div class="loader" id="loader">
+                <div class="spinner"></div>
+            </div>
+            
+            <div class="gallery" id="imageGallery"></div>
+            
+            <div class="pagination" id="pagination"></div>
+        </section>
+    </div>
+
+    <script>
+        // Configuration
+        const CONFIG = {
+            itemsPerPage: 12,
+            apiEndpoint: null,  // Will be set from backend
+            bucketName: null    // Will be set from backend
+        };
+
+        // DOM Elements
+        const elements = {
+            uploadForm: document.getElementById('uploadForm'),
+            fileInput: document.getElementById('fileInput'),
+            fileInputLabel: document.getElementById('fileInputLabel'),
+            selectedFile: document.getElementById('selectedFile'),
+            statusMessage: document.getElementById('statusMessage'),
+            imageGallery: document.getElementById('imageGallery'),
+            bucketInfo: document.getElementById('bucketInfo'),
+            pagination: document.getElementById('pagination'),
+            loader: document.getElementById('loader'),
+            searchInput: document.getElementById('searchInput'),
+            searchBtn: document.getElementById('searchBtn')
+        };
+
+        // Application State
+        const state = {
+            files: [],
+            currentPage: 1,
+            totalPages: 1,
+            searchTerm: '',
+            isLoading: false
+        };
+
+        // Initialize the application
+        document.addEventListener('DOMContentLoaded', initApp);
+
+        function initApp() {
+            // Fetch initial configuration from backend
+            fetchConfig()
+                .then(() => {
+                    // Set up event listeners
+                    setupEventListeners();
+                    
+                    // Load initial data
+                    loadFiles();
+                })
+                .catch(error => {
+                    showStatusMessage('Error initializing application: ' + error.message, 'error');
+                });
+        }
+
+        async function fetchConfig() {
+            try {
+                const response = await fetch('/');
+                if (!response.ok) {
+                    throw new Error('Failed to fetch configuration');
+                }
+                
+                const text = await response.text();
+                const tempDiv = document.createElement('div');
+                tempDiv.innerHTML = text;
+                
+                // Extract configuration from response
+                const scripts = tempDiv.querySelectorAll('script');
+                for (const script of scripts) {
+                    if (script.textContent.includes('bucketName') || script.textContent.includes('apiEndpoint')) {
+                        // Execute the script to get the values
+                        eval(script.textContent);
+                        break;
+                    }
+                }
+                
+                // Update bucket info display
+                if (CONFIG.bucketName) {
+                    elements.bucketInfo.textContent = `Bucket: ${CONFIG.bucketName}`;
+                }
+            } catch (error) {
+                console.error('Error fetching configuration:', error);
+                // Use default values as fallback
+                CONFIG.apiEndpoint = '';
+                CONFIG.bucketName = 'S3 Bucket';
+                elements.bucketInfo.textContent = `Bucket: ${CONFIG.bucketName}`;
+            }
+        }
+
+        function setupEventListeners() {
+            // File upload form submission
+            elements.uploadForm.addEventListener('submit', handleFileUpload);
+            
+            // File input change
+            elements.fileInput.addEventListener('change', handleFileSelection);
+            
+            // Drag and drop functionality
+            setupDragAndDrop();
+            
+            // Search functionality
+            elements.searchBtn.addEventListener('click', handleSearch);
+            elements.searchInput.addEventListener('keypress', (e) => {
+                if (e.key === 'Enter') {
+                    handleSearch();
+                }
+            });
+        }
+
+        function setupDragAndDrop() {
+            const dropZone = elements.fileInputLabel;
+            
+            // Prevent default drag behaviors
+            ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+                dropZone.addEventListener(eventName, preventDefaults, false);
+            });
+            
+            // Highlight drop zone when item is dragged over it
+            ['dragenter', 'dragover'].forEach(eventName => {
+                dropZone.addEventListener(eventName, highlight, false);
+            });
+            
+            ['dragleave', 'drop'].forEach(eventName => {
+                dropZone.addEventListener(eventName, unhighlight, false);
+            });
+            
+            // Handle dropped files
+            dropZone.addEventListener('drop', handleDrop, false);
+            
+            function preventDefaults(e) {
+                e.preventDefault();
+                e.stopPropagation();
+            }
+            
+            function highlight() {
+                dropZone.style.borderColor = 'var(--primary-color)';
+                dropZone.style.backgroundColor = 'rgba(0, 102, 204, 0.05)';
+            }
+            
+            function unhighlight() {
+                dropZone.style.borderColor = 'var(--border-color)';
+                dropZone.style.backgroundColor = '';
+            }
+            
+            function handleDrop(e) {
+                const dt = e.dataTransfer;
+                const files = dt.files;
+                elements.fileInput.files = files;
+                handleFileSelection();
+            }
+        }
+
+        function handleFileSelection() {
+            const file = elements.fileInput.files[0];
+            if (file) {
+                elements.selectedFile.textContent = `Selected: ${file.name} (${formatFileSize(file.size)})`;
+                elements.fileInputLabel.querySelector('span').textContent = file.name;
+            } else {
+                elements.selectedFile.textContent = '';
+                elements.fileInputLabel.querySelector('span').textContent = 'Drag & drop an image or click to browse';
+            }
+        }
+
+        async function handleFileUpload(e) {
+            e.preventDefault();
+            
+            const file = elements.fileInput.files[0];
+            if (!file) {
+                showStatusMessage('Please select a file to upload', 'error');
+                return;
+            }
+            
+            // Validate file is an image
+            if (!file.type.startsWith('image/')) {
+                showStatusMessage('Please select an image file', 'error');
+                return;
+            }
+            
+            const formData = new FormData();
+            formData.append('file', file);
+            
+            try {
+                setLoading(true);
+                showStatusMessage('Uploading file...', 'info');
+                
+                const response = await fetch('/api/upload', {
+                    method: 'POST',
+                    body: formData
+                });
+                
+                if (!response.ok) {
+                    const error = await response.text();
+                    throw new Error(error || 'Failed to upload file');
+                }
+                
+                const result = await response.text();
+                showStatusMessage('File uploaded successfully!', 'success');
+                
+                // Reset form
+                elements.uploadForm.reset();
+                elements.selectedFile.textContent = '';
+                elements.fileInputLabel.querySelector('span').textContent = 'Drag & drop an image or click to browse';
+                
+                // Reload files
+                loadFiles();
+            } catch (error) {
+                console.error('Error uploading file:', error);
+                showStatusMessage(`Error uploading file: ${error.message}`, 'error');
+            } finally {
+                setLoading(false);
+            }
+        }
+
+        async function loadFiles() {
+            try {
+                setLoading(true);
+                
+                // Construct URL with search parameter if there's a search term
+                let url = '/api/files';
+                if (state.searchTerm) {
+                    url += `?search=${encodeURIComponent(state.searchTerm)}`;
+                }
+                
+                const response = await fetch(url);
+                if (!response.ok) {
+                    throw new Error('Failed to load files');
+                }
+                
+                const files = await response.json();
+                state.files = files;
+                
+                // Calculate total pages
+                state.totalPages = Math.ceil(files.length / CONFIG.itemsPerPage);
+                
+                // Ensure current page is valid
+                if (state.currentPage > state.totalPages) {
+                    state.currentPage = Math.max(1, state.totalPages);
+                }
+                
+                // Render files and pagination
+                renderFiles();
+                renderPagination();
+            } catch (error) {
+                console.error('Error loading files:', error);
+                showStatusMessage(`Error loading files: ${error.message}`, 'error');
+                elements.imageGallery.innerHTML = '<div class="empty-gallery"><i class="fas fa-exclamation-triangle"></i><p>Failed to load images. Please try again.</p></div>';
+            } finally {
+                setLoading(false);
+            }
+        }
+
+        function renderFiles() {
+            const gallery = elements.imageGallery;
+            gallery.innerHTML = '';
+            
+            if (state.files.length === 0) {
+                gallery.innerHTML = '<div class="empty-gallery"><i class="fas fa-image"></i><p>No images found. Upload some images to get started.</p></div>';
+                return;
+            }
+            
+            // Calculate start and end indices for pagination
+            const startIndex = (state.currentPage - 1) * CONFIG.itemsPerPage;
+            const endIndex = Math.min(startIndex + CONFIG.itemsPerPage, state.files.length);
+            
+            // Get current page files
+            const currentFiles = state.files.slice(startIndex, endIndex);
+            
+            // Create HTML for each file
+            currentFiles.forEach(file => {
+                const card = document.createElement('div');
+                card.className = 'image-card';
+                
+                const fileExtension = file.key.split('.').pop().toLowerCase();
+                const isImage = ['jpg', 'jpeg', 'png', 'gif', 'bmp', 'webp', 'svg'].includes(fileExtension);
+                
+                card.innerHTML = `
+                    <div class="image-container">
+                        ${isImage ? 
+                            `<img src="/api/download?key=${encodeURIComponent(file.key)}&filename=${encodeURIComponent(file.filename)}" alt="${file.filename}" loading="lazy">` : 
+                            `<i class="fas fa-file" style="font-size: 3rem; color: #ccc;"></i>`
+                        }
+                    </div>
+                    <div class="image-info">
+                        <div class="image-filename">${file.filename}</div>
+                        <div class="image-size">${formatFileSize(file.size)}</div>
+                        <div class="image-actions">
+                            <button class="btn btn-primary download-btn" data-key="${file.key}" data-filename="${file.filename}">
+                                <i class="fas fa-download"></i> Download
+                            </button>
+                            <button class="btn btn-danger delete-btn" data-key="${file.key}">
+                                <i class="fas fa-trash-alt"></i> Delete
+                            </button>
+                        </div>
+                    </div>
+                `;
+                
+                // Add event listeners to buttons
+                const downloadBtn = card.querySelector('.download-btn');
+                const deleteBtn = card.querySelector('.delete-btn');
+                
+                downloadBtn.addEventListener('click', () => {
+                    window.location.href = `/api/download?key=${encodeURIComponent(file.key)}&filename=${encodeURIComponent(file.filename)}`;
+                });
+                
+                deleteBtn.addEventListener('click', () => {
+                    if (confirm(`Are you sure you want to delete ${file.filename}?`)) {
+                        deleteFile(file.key);
+                    }
+                });
+                
+                gallery.appendChild(card);
+            });
+        }
+
+        function renderPagination() {
+            const pagination = elements.pagination;
+            pagination.innerHTML = '';
+            
+            if (state.totalPages <= 1) {
+                pagination.classList.add('hidden');
+                return;
+            }
+            
+            pagination.classList.remove('hidden');
+            
+            // Previous button
+            const prevButton = document.createElement('button');
+            prevButton.innerHTML = '<i class="fas fa-chevron-left"></i>';
+            prevButton.disabled = state.currentPage === 1;
+            prevButton.classList.toggle('disabled', state.currentPage === 1);
+            prevButton.addEventListener('click', () => {
+                if (state.currentPage > 1) {
+                    state.currentPage--;
+                    renderFiles();
+                    renderPagination();
+                    window.scrollTo(0, elements.imageGallery.offsetTop - 100);
+                }
+            });
+            pagination.appendChild(prevButton);
+            
+            // Page buttons
+            const maxVisiblePages = 5;
+            let startPage = Math.max(1, state.currentPage - Math.floor(maxVisiblePages / 2));
+            let endPage = Math.min(state.totalPages, startPage + maxVisiblePages - 1);
+            
+            if (endPage - startPage + 1 < maxVisiblePages) {
+                startPage = Math.max(1, endPage - maxVisiblePages + 1);
+            }
+            
+            // First page button if not visible
+            if (startPage > 1) {
+                const firstButton = document.createElement('button');
+                firstButton.textContent = '1';
+                firstButton.addEventListener('click', () => {
+                    state.currentPage = 1;
+                    renderFiles();
+                    renderPagination();
+                    window.scrollTo(0, elements.imageGallery.offsetTop - 100);
+                });
+                pagination.appendChild(firstButton);
+                
+                if (startPage > 2) {
+                    const ellipsis = document.createElement('span');
+                    ellipsis.textContent = '...';
+                    ellipsis.style.padding = '8px';
+                    pagination.appendChild(ellipsis);
+                }
+            }
+            
+            // Page buttons
+            for (let i = startPage; i <= endPage; i++) {
+                const pageButton = document.createElement('button');
+                pageButton.textContent = i;
+                pageButton.classList.toggle('active', i === state.currentPage);
+                pageButton.addEventListener('click', () => {
+                    state.currentPage = i;
+                    renderFiles();
+                    renderPagination();
+                    window.scrollTo(0, elements.imageGallery.offsetTop - 100);
+                });
+                pagination.appendChild(pageButton);
+            }
+            
+            // Last page button if not visible
+            if (endPage < state.totalPages) {
+                if (endPage < state.totalPages - 1) {
+                    const ellipsis = document.createElement('span');
+                    ellipsis.textContent = '...';
+                    ellipsis.style.padding = '8px';
+                    pagination.appendChild(ellipsis);
+                }
+                
+                const lastButton = document.createElement('button');
+                lastButton.textContent = state.totalPages;
+                lastButton.addEventListener('click', () => {
+                    state.currentPage = state.totalPages;
+                    renderFiles();
+                    renderPagination();
+                    window.scrollTo(0, elements.imageGallery.offsetTop - 100);
+                });
+                pagination.appendChild(lastButton);
+            }
+            
+            // Next button
+            const nextButton = document.createElement('button');
+            nextButton.innerHTML = '<i class="fas fa-chevron-right"></i>';
+            nextButton.disabled = state.currentPage === state.totalPages;
+            nextButton.classList.toggle('disabled', state.currentPage === state.totalPages);
+            nextButton.addEventListener('click', () => {
+                if (state.currentPage < state.totalPages) {
+                    state.currentPage++;
+                    renderFiles();
+                    renderPagination();
+                    window.scrollTo(0, elements.imageGallery.offsetTop - 100);
+                }
+            });
+            pagination.appendChild(nextButton);
+        }
+
+        async function deleteFile(key) {
+            try {
+                setLoading(true);
+                
+                const formData = new FormData();
+                formData.append('key', key);
+                
+                const response = await fetch('/api/delete', {
+                    method: 'POST',
+                    body: formData
+                });
+                
+                if (!response.ok) {
+                    const error = await response.text();
+                    throw new Error(error || 'Failed to delete file');
+                }
+                
+                showStatusMessage('File deleted successfully!', 'success');
+                
+                // Reload files
+                loadFiles();
+            } catch (error) {
+                console.error('Error deleting file:', error);
+                showStatusMessage(`Error deleting file: ${error.message}`, 'error');
+            } finally {
+                setLoading(false);
+            }
+        }
+
+        function handleSearch() {
+            const searchTerm = elements.searchInput.value.trim();
+            state.searchTerm = searchTerm;
+            state.currentPage = 1;
+            loadFiles();
+        }
+
+        function showStatusMessage(message, type) {
+            elements.statusMessage.textContent = message;
+            elements.statusMessage.className = `status-message ${type}`;
+            elements.statusMessage.style.display = 'block';
+            
+            // Auto-hide success messages after 3 seconds
+            if (type === 'success') {
+                setTimeout(() => {
+                    elements.statusMessage.style.display = 'none';
+                }, 3000);
+            }
+        }
+
+        function setLoading(isLoading) {
+            state.isLoading = isLoading;
+            elements.loader.style.display = isLoading ? 'flex' : 'none';
+        }
+
+        function formatFileSize(bytes) {
+            if (bytes === 0) return '0 Bytes';
+            
+            const k = 1024;
+            const sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB'];
+            const i = Math.floor(Math.log(bytes) / Math.log(k));
+            
+            return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+        }
+    </script>
+</body>
+</html>
